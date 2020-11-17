@@ -12,6 +12,7 @@ pub struct Model {
     lookup: HashMap<String,Vec<f32>>
 }
 
+#[derive(Debug)]
 pub enum W2VError {
     NotImplemented,
     NoFileAtPath,
@@ -52,25 +53,29 @@ impl Model {
         // let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(total_words);
         let mut lookup: HashMap<String,Vec<f32>> = HashMap::with_capacity(total_words); 
         let mut mode: ReadMode = ReadMode::Word;
-        let mut current_word_bytes: Vec<u8> = Vec::with_capacity(40);
+        // let mut current_word_bytes: Vec<u8> = Vec::with_capacity(40);
         let mut current_vector: Vec<f32> = Vec::with_capacity(size);
         let mut current_value: f32;
         let mut current_value_byte_buffer: Vec<u8> = Vec::with_capacity(size);
-        let mut current_word: String = String::new();
-        println!("Building Model");
+        let mut current_word: String = String::with_capacity(50);
+        // let mut current_byte: usize = 0;
+        print!("Building Model... ");
         for byte_opt in reader.bytes() {
             match byte_opt {
                 Ok(byte) => {
                     match mode {
                         ReadMode::Word => match byte {
                             b' ' => {
-                                current_word = String::from_utf8(current_word_bytes.clone()).unwrap();
-                                current_word_bytes.clear();
+                                // current_word = String::from_utf8(current_word_bytes.clone()).unwrap();
+                                // current_word_bytes.clear();
                                 mode = ReadMode::Vector;
                             }
                             b'\n' => { // ignore \n's
                             }
-                            _ => current_word_bytes.push(byte),
+                            _ => {
+                                // current_word_bytes.push(byte);
+                                current_word.push(byte as char);
+                            },
                         },
                         ReadMode::Vector => {
                             match byte {
@@ -83,6 +88,7 @@ impl Model {
                                         current_value_byte_buffer.clear();
                                         if current_vector.len() == size {
                                             lookup.insert(current_word.clone(), current_vector.clone());
+                                            current_word.clear();
                                             current_vector.clear();
                                             mode = ReadMode::Word;
                                         }
@@ -99,7 +105,7 @@ impl Model {
                 }
             }
         }
-        println!("");
+        println!("Done\n");
         Ok(Model {
             total_words,
             size,
@@ -126,9 +132,6 @@ impl Model {
         // This could be heavily multi-threaded
         let mut keys : Vec<String> = cosines.keys().map(|input| (*input).clone()).collect();
         keys.sort_by(|a,b| (*cosines.get(b).unwrap()).partial_cmp(cosines.get(a).unwrap()).unwrap() );
-
-        // let key = keys[0].clone();
-        // let res = (*cosines.get(&key).unwrap()).clone();
 
         SortedCosines {
             cosines,
@@ -194,7 +197,6 @@ impl Model {
 
 pub struct Vec2wordResult {
     word: String,
-    // error: Vec<f32>,
     cosine: f32,
 }
 
@@ -214,7 +216,7 @@ impl SortedCosines {
 #[cfg(test)]
 mod test {
     use super::*;
-    // use std::time::{Duration, Instant};
+    use std::time::Instant;
     #[test]
     fn t01_init_model_false_path() -> Result<(), ()> {
         match Model::new(PathBuf::from("/tmp/nothing")) {
@@ -261,9 +263,11 @@ mod test {
     }
 
     #[test]
-    #[ignore]
-    fn t03_init_model_big() -> Result<(), ()> {
+    fn t04_init_model_big() -> Result<(), ()> {
+        let start_time = Instant::now();
         if let Ok(_model) = Model::new(PathBuf::from("./test_material/GoogleNews-vectors-negative300.bin")) {
+            let finish_time = Instant::now();
+            println!("load time: {}",(finish_time-start_time).as_secs());
             return Ok(());
         } else {
             return Err(());
@@ -272,7 +276,7 @@ mod test {
 
     #[test]
     #[ignore]
-    fn t04_do_lookups_big() -> Result<(), String> {
+    fn t05_do_lookups_big() -> Result<(), String> {
         if let Ok(model) = Model::new(PathBuf::from("./test_material/GoogleNews-vectors-negative300.bin")) {
             let words = vec!["the","one","in"];
             let mut sum: f32 = 0.0;
@@ -299,7 +303,7 @@ mod test {
     }
 
     #[test]
-    fn t05_get_top5_cosine() -> Result<(), String> {
+    fn t06_get_top5_cosine() -> Result<(), String> {
         if let Ok(model) = Model::new(PathBuf::from("./test_material/vectors.bin")) {
             let words : Vec<String> = vec!["italy","france","paris","rome"].iter().map(|input| (*input).to_string()).collect();
             for word_i in 0..words.len() {
@@ -321,7 +325,7 @@ mod test {
     }
 
     #[test]
-    fn t06_vector_word_maths()-> Result<(), String> {
+    fn t07_vector_word_maths()-> Result<(), String> {
         if let Ok(model) = Model::new(PathBuf::from("./test_material/GoogleNews-vectors-negative300.bin")) {
             let paris_vec = model.word2vec(&"king".to_string()).unwrap();
             let france_vec = model.word2vec(&"man".to_string()).unwrap();
