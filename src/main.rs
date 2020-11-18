@@ -2,10 +2,9 @@ mod word2vec;
 mod server;
 use std::path::PathBuf;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     println!("Hello, world!");
     let short_model_path =PathBuf::from("./test_material/vectors.bin");
     let server = server::Server::new(short_model_path).unwrap();
-    server.begin().await;
+    server.begin();
 }

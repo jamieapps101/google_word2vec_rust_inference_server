@@ -5,7 +5,7 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::collections::HashMap;
 
-
+#[allow(dead_code)]
 pub struct Model {
     total_words: usize,
     size: usize,
@@ -14,11 +14,11 @@ pub struct Model {
 
 #[derive(Debug)]
 pub enum W2VError {
-    NotImplemented,
+    // NotImplemented,
     NoFileAtPath,
     CouldNotOpenFile,
     ReadError(usize),
-    UnexpectedEoF,
+    // UnexpectedEoF,
 }
 
 #[derive(Debug)]
@@ -27,6 +27,7 @@ enum ReadMode {
     Vector,
 }
 
+#[allow(dead_code)]
 impl Model {
     pub fn new(model_path: PathBuf) -> Result<Model, W2VError> {
         if !model_path.exists() {
@@ -49,16 +50,12 @@ impl Model {
         let size: usize = items[1].parse::<usize>().unwrap();
         println!("size: {}", size);
 
-        // let mut words: Vec<String> = Vec::with_capacity(total_words);
-        // let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(total_words);
         let mut lookup: HashMap<String,Vec<f32>> = HashMap::with_capacity(total_words); 
         let mut mode: ReadMode = ReadMode::Word;
-        // let mut current_word_bytes: Vec<u8> = Vec::with_capacity(40);
         let mut current_vector: Vec<f32> = Vec::with_capacity(size);
         let mut current_value: f32;
         let mut current_value_byte_buffer: Vec<u8> = Vec::with_capacity(size);
         let mut current_word: String = String::with_capacity(50);
-        // let mut current_byte: usize = 0;
         print!("Building Model... ");
         for byte_opt in reader.bytes() {
             match byte_opt {
@@ -66,14 +63,11 @@ impl Model {
                     match mode {
                         ReadMode::Word => match byte {
                             b' ' => {
-                                // current_word = String::from_utf8(current_word_bytes.clone()).unwrap();
-                                // current_word_bytes.clear();
                                 mode = ReadMode::Vector;
                             }
                             b'\n' => { // ignore \n's
                             }
                             _ => {
-                                // current_word_bytes.push(byte);
                                 current_word.push(byte as char);
                             },
                         },
@@ -99,9 +93,9 @@ impl Model {
                     }
                 }
                 Err(_) => {
+                    // EoF in this case
                     println!("reached end of file");
                     break;
-                    // EoF in this case
                 }
             }
         }
@@ -114,7 +108,6 @@ impl Model {
     }
 
     pub fn word2vec(&self, word: &String) -> Option<&Vec<f32>> {
-        println!("Doing lookup");
         if self.lookup.contains_key(word) {
             self.lookup.get(word)
         } else {
@@ -176,35 +169,32 @@ impl Model {
     }
 
     fn get_cosine_unchecked(&self, worda: String, wordb: String) -> f32 {
-        Self::cosine(self.lookup.get(&worda).unwrap(),self.lookup.get(&worda).unwrap())
+        Self::cosine(self.lookup.get(&worda).unwrap(),self.lookup.get(&wordb).unwrap())
     }
 
-    fn cosine(vecA: &Vec<f32>,vecB: &Vec<f32>) -> f32 {
+    fn cosine(vec_a: &Vec<f32>,vec_b: &Vec<f32>) -> f32 {
         let mut sum: f32 = 0.0;
-        let mut normA: f32 = 0.0;
-        let mut normB: f32 = 0.0;
-        for (valA,valB) in vecA.iter().zip(vecB) {
-            sum += valA*valB;
-            normA += valA.powi(2);
-            normB += valB.powi(2);
+        let mut norm_a: f32 = 0.0;
+        let mut norm_b: f32 = 0.0;
+        for (val_a,val_b) in vec_a.iter().zip(vec_b) {
+            sum += val_a*val_b;
+            norm_a += val_a.powi(2);
+            norm_b += val_b.powi(2);
         }
-        normA = normA.powf(0.5);
-        normB = normB.powf(0.5);
+        norm_a = norm_a.powf(0.5);
+        norm_b = norm_b.powf(0.5);
 
-        sum/(normA*normB)
+        sum/(norm_a*norm_b)
     }
 }
 
-pub struct Vec2wordResult {
-    word: String,
-    cosine: f32,
-}
-
+#[allow(dead_code)]
 pub struct SortedCosines {
     cosines: HashMap<String,f32>,
     keys   : Vec<String>,
 }
 
+#[allow(dead_code)]
 impl SortedCosines {
     pub fn get_nth_top(&self, n: usize) -> (std::string::String, f32) {
         let key = self.keys[n].clone();
