@@ -79,6 +79,8 @@ impl<T> Comm<T> {
 }
 
 pub struct Server {
+    comm_tx:       Comm<ThreadComm>,
+    comm_rx:       Comm<ThreadComm>,
     model:         Arc<Mutex<word2vec::Model>>,
     pool:          ThreadPool,
 } 
@@ -93,40 +95,42 @@ impl Server {
                 return None;
             }, 
         };
-        let pool =  ThreadPool::new(2); // one for the model, one for the server
+        println!("Done");
+        println!("words:{}\nvector size:{}\n",model.total_words, model.size);
+        let pool =  ThreadPool::new(1); // one for the model, one for the server
+        let (comm_tx,comm_rx):(Comm<ThreadComm>,Comm<ThreadComm>) = Comm::new();
         Some(Server {
+            comm_tx,
+            comm_rx,
             model:Arc::new(Mutex::new(model)),
             pool,
         })
     }
 
-    pub fn begin(&mut self, port: u16) -> Comm<ThreadComm> {
-        println!("Beginning HTTP server");
-    
-        let (comm_a,comm_b):(Comm<ThreadComm>,Comm<ThreadComm>) = Comm::new();
-        
-
+    pub fn begin(&mut self, port: u16){
         let (http_shutdown_tx, http_server_shutdown_rx): (oneshot::Sender<()>, oneshot::Receiver<()>) = oneshot::channel();
-        let return_var =  comm_b.clone();
+        let comm_b =  self.comm_tx.clone();
 
         self.pool.execute(move || {
             let mut rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(Self::serve(comm_b,port, http_server_shutdown_rx));
         });
         let local_model = self.model.clone();
-        self.pool.execute(move || {
-            Self::infer(comm_a, local_model);
+
+        self.infer(local_model);
             // after killing 
-            http_shutdown_tx.send(()).unwrap();
-        });
-       return_var
+        http_shutdown_tx.send(()).unwrap();
     }
 
-    fn infer(comm:Comm<ThreadComm>, model: Arc<Mutex<word2vec::Model>>) {
+    pub fn get_shutdown_tx(&self) -> Comm<ThreadComm> {
+        self.comm_tx.clone()
+    }
+
+    fn infer(&self, model: Arc<Mutex<word2vec::Model>>) {
         println!("starting inference server");
         // get model out of the Arc/Mutex
         let model = model.as_ref().lock().unwrap();
-        for message in comm.iter() {
+        for message in self.comm_rx.iter() {
             match message {
                 ThreadComm::Word2Vec(word) => {
                     let return_message = match model.word2vec(&word) {
@@ -137,7 +141,7 @@ impl Server {
                             None
                         }
                     };
-                    if let Err(reason) = comm.send(ThreadComm::WordVec(return_message)) {
+                    if let Err(reason) = self.comm_rx.send(ThreadComm::WordVec(return_message)) {
                         println!("Warning, could not send message because:\n\t{}",reason);
                     }
                 },
@@ -155,7 +159,7 @@ impl Server {
     
     async fn serve(comm:Comm<ThreadComm>, port: u16, shutdown_rx: oneshot::Receiver<()>) {
         let socket = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(0,0,0,0),port));
-        println!("starting web server on: {}",socket);
+        println!("starting HTTP server on: {}",socket);
         let convert = warp::get()
             .and(warp::path("convert"))
             // Only accept bodies smaller than 1Mb...
@@ -167,8 +171,9 @@ impl Server {
                 for word in payload.words.iter() {
                     let s: String = (*word).clone();
                     if let Err(reason) = comm.send(ThreadComm::Word2Vec(s.clone())) {
-                        println!("I errored be:\n\t{}",reason);
+                        println!("I errored bc:\n\t{}",reason);
                     }
+                    // println!("Received Request");
                     if let ThreadComm::WordVec(vec_response_opt) = comm.recv().unwrap() {
                         if let Some(vec_response) = vec_response_opt {
                             // response_vector.push(vec_response);
@@ -182,7 +187,8 @@ impl Server {
             });
     
             let (_addr, server) = warp::serve(convert).bind_with_graceful_shutdown(socket, async {shutdown_rx.await.ok(); });
-            server.await
+            server.await;
+            println!("Exiting HTTP server");
     }
 }
 

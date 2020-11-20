@@ -28,9 +28,10 @@ fn main() {
     let model_path = PathBuf::from(matches.value_of("bin").unwrap());
     let port: u16  = matches.value_of("port").unwrap_or("3030").parse::<u16>().unwrap();
     let mut server = server::Server::init(model_path).unwrap();
-    let shutdown_tx = server.begin(port);
-
+    let shutdown_tx = server.get_shutdown_tx(); 
     ctrlc::set_handler(move || {
+        println!("\nReceived Ctrl-C, shutting down servers...");
         shutdown_tx.send(server::ThreadComm::Exit).unwrap();
-    }).expect("Error setting Ctrl-C handler")
+    }).expect("Error setting Ctrl-C handler");
+    server.begin(port);
 }

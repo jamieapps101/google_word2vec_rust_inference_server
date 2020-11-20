@@ -8,8 +8,8 @@ use std::collections::HashMap;
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct Model {
-    total_words: usize,
-    size: usize,
+    pub total_words: usize,
+    pub size: usize,
     lookup: HashMap<String,Vec<f32>>
 }
 
@@ -47,9 +47,7 @@ impl Model {
 
         let items: Vec<&str> = first_line.split_ascii_whitespace().collect();
         let total_words: usize = items[0].parse::<usize>().unwrap();
-        println!("words: {}", total_words);
         let size: usize = items[1].parse::<usize>().unwrap();
-        println!("size: {}", size);
 
         let mut lookup: HashMap<String,Vec<f32>> = HashMap::with_capacity(total_words); 
         let mut mode: ReadMode = ReadMode::Word;
@@ -57,7 +55,6 @@ impl Model {
         let mut current_value: f32;
         let mut current_value_byte_buffer: Vec<u8> = Vec::with_capacity(size);
         let mut current_word: String = String::with_capacity(50);
-        print!("Building Model... ");
         for byte_opt in reader.bytes() {
             match byte_opt {
                 Ok(byte) => {
@@ -100,7 +97,6 @@ impl Model {
                 }
             }
         }
-        println!("Done\n");
         Ok(Model {
             total_words,
             size,

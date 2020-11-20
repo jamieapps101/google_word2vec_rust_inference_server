@@ -14,7 +14,7 @@ if __name__ == "__main__":
     loops = 10000
     init_time = time.perf_counter()
     for i in range(loops):
-        res = get_vector("hello", 'http://127.0.0.1:3030/convert/')
+        res = get_vector("hello", 'http://127.0.0.1:3040/convert/')
     finish_time = time.perf_counter()
     print("time per request: {} ms\n".format((finish_time-init_time)*1000/loops))
     print("total time: {} ms\n".format((finish_time-init_time)*1000))
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     print("Single request")
     entries = 10000
     init_time = time.perf_counter()
-    res = get_vector(["hello" for i in range(entries)], 'http://127.0.0.1:3030/convert/')
+    res = get_vector(["hello" for i in range(entries)], 'http://127.0.0.1:3040/convert/')
     finish_time = time.perf_counter()
     print("time per entry: {} ms".format((finish_time-init_time)*1000/entries))
     print("total time: {} ms\n".format((finish_time-init_time)*1000))
