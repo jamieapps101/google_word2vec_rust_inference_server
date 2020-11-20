@@ -5,6 +5,7 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::collections::HashMap;
 
+#[derive(Debug)]
 #[allow(dead_code)]
 pub struct Model {
     total_words: usize,
