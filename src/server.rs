@@ -28,7 +28,7 @@ struct ConvertPayload {
 
 #[derive(Deserialize, Serialize)]
 struct ConvertResponse {
-    data: HashMap<String,Vec<f32>>,
+    data: HashMap<String,Option<Vec<f32>>>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -166,19 +166,16 @@ impl Server {
             .and(warp::body::content_length_limit(1024*1024))
             .and(warp::body::json())
             .map(move |payload: ConvertPayload| {
-                // let mut response_vector: Vec<Vec<f32>> = Vec::with_capacity(payload.words.len());
-                let mut response_map: HashMap<String,Vec<f32>> = HashMap::with_capacity(payload.words.len());
+                let mut response_map: HashMap<String,Option<Vec<f32>>> = HashMap::with_capacity(payload.words.len());
                 for word in payload.words.iter() {
                     let s: String = (*word).clone();
                     if let Err(reason) = comm.send(ThreadComm::Word2Vec(s.clone())) {
                         println!("I errored bc:\n\t{}",reason);
                     }
-                    // println!("Received Request");
                     if let ThreadComm::WordVec(vec_response_opt) = comm.recv().unwrap() {
-                        if let Some(vec_response) = vec_response_opt {
-                            // response_vector.push(vec_response);
-                            response_map.insert(s, vec_response);
-                        }
+                        response_map.insert(s, vec_response_opt);
+                    } else {
+                        response_map.insert(s, None);
                     }
                 }
                 warp::reply::json(&ConvertResponse {
